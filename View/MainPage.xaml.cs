@@ -22,6 +22,7 @@ namespace PhotoCapture
             InitializeComponent();
             DataContext = new MainPageViewModel();
 
+            // set preferred app window size
             ApplicationView.PreferredLaunchViewSize = new Size(540, 720);
             ApplicationView.PreferredLaunchWindowingMode = ApplicationViewWindowingMode.PreferredLaunchViewSize;
 
@@ -47,7 +48,7 @@ namespace PhotoCapture
          */
         private async void Application_Resuming(object sender, object o)
         {
-            await ((MainPageViewModel)this.DataContext).InitCameraAsync();
+            await ((MainPageViewModel)this.DataContext).InitDefaultCameraAsync();
         }
 
         /**
@@ -57,7 +58,7 @@ namespace PhotoCapture
         protected override async void OnNavigatedTo(NavigationEventArgs e)
         {
 
-            await ((MainPageViewModel)this.DataContext).InitCameraAsync();
+            await ((MainPageViewModel)this.DataContext).InitDefaultCameraAsync();
         }
     }
 }

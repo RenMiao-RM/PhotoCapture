@@ -1,78 +1,97 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using ViewModel;
+using Windows.Data.Xml.Dom;
 using Windows.Media.MediaProperties;
 using Windows.Storage;
+using Windows.UI.Notifications;
 
 namespace Commands
-{ 
+{
+    /**
+     * SaveCommand class
+     * SaveCommand save the current photo on camera to Picture/Saved Pictures folder
+     */
     public class SaveCommand : ICommand
     {
-        MainPageViewModel viewModel;
-        public SaveCommand(MainPageViewModel _viewModel)
+        /// A private variable for MainPageViewModel
+        private MainPageViewModel viewModel;
+
+        private XmlDocument notificationXML;
+
+        /**
+         * Constructor
+         */
+        public SaveCommand(MainPageViewModel viewModel)
         {
-            viewModel = _viewModel;
+            this.viewModel = viewModel;
+
+            string notificationStr = "<toast launch=\"app-defined-string\">" +
+                         "<visual>" +
+                           "<binding template =\"ToastGeneric\">" +
+                             "<text>PhotoCapture Notification</text>" +
+                             "<text>" +
+                               @"Photo captured and saved at \Users\Pictures\Saved Pictures folder. " +
+                             "</text>" +
+                           "</binding>" +
+                         "</visual>" +
+                       "</toast>";
+
+            // load the template as XML document
+            notificationXML = new XmlDocument();
+            notificationXML.LoadXml(notificationStr);
         }
 
+        /// CanExecuteChanged EventHanlder
         public event EventHandler CanExecuteChanged;
 
+        /**
+         * CanExecute method to determine if the command is active or inactive
+         * @param parameter Parameter object
+         * @return true if active, false otherwise; here always return true as saving a photo is always allowed
+         */
         public bool CanExecute(object parameter)
         {
             return true;
         }
 
+        /**
+         * Execute the SaveCommand saves the current photo on camera to Pictures/Saved Pictures folder.
+         * @param parameter Parameter object
+         */
         public async void Execute(object parameter)
         {
-
             // Photo storage location (Picture/Saved Pictures)
             StorageFolder storageFolder = KnownFolders.SavedPictures;
 
-            string targetFileName = await GenerateFileName(storageFolder);
-
-            // Create the file 
-            StorageFile file = await storageFolder.CreateFileAsync(targetFileName, CreationCollisionOption.ReplaceExisting);
+            // Create the file (an uniquie name will be generated)
+            StorageFile file = await storageFolder.CreateFileAsync(GenerateFileName(), CreationCollisionOption.GenerateUniqueName);
 
             // Update the file with the contents of the photo
-            await viewModel.CameraCapture.CapturePhotoToStorageFileAsync(ImageEncodingProperties.CreateJpeg(), file);
+            await viewModel.DefaultCamera.CameraCapture.CapturePhotoToStorageFileAsync(ImageEncodingProperties.CreateJpeg(), file);
+
+            // create the toast notification and show to user
+            var toastNotification = new ToastNotification(notificationXML);
+            var notification = ToastNotificationManager.CreateToastNotifier();
+            notification.Show(toastNotification);
+
+            // delay for 1 second and hide the notification
+            await Task.Delay(TimeSpan.FromSeconds(1));
+            notification.Hide(toastNotification);
+
         }
 
-        private async Task<String> GenerateFileName(StorageFolder folder)
+        /**
+         * A method to generate the file name. 
+         * The file name has the following format: MM-dd-yyyy_hh-mm-ss_tt (tt is AM or PM).
+         * In the CreateFileAsync() call above it uses GenerateUniqueName option therefore all file names will be unique.
+         * @return generated file name
+         */
+        private string GenerateFileName()
         {
             string timeStamp = DateTime.Now.ToString("MM-dd-yyyy_hh-mm-ss_tt");
-
-            IReadOnlyList<StorageFile> fileList = await folder.GetFilesAsync();
-            bool containsFileName = false;
-            int max = 0;
-            foreach (StorageFile file in fileList)
-            {
-                if (file.Name.StartsWith(timeStamp))
-                {
-                    containsFileName = true;
-                    int rightParenthesisIndex = file.Name.LastIndexOf(')');
-                    int leftParenthesisIndex = file.Name.LastIndexOf('(');
-                    if (rightParenthesisIndex < 0 || leftParenthesisIndex < 0)
-                    {
-                        continue;
-                    }
-                    string numInFile = file.Name.Substring(leftParenthesisIndex + 1, rightParenthesisIndex);
-                    try
-                    {
-                        int num = Int32.Parse(numInFile);
-                        max = Math.Max(max, num);
-                    }
-                    catch (FormatException e)
-                    {
-                        continue;
-                    }
-                }
-            }
-
-            if (!containsFileName)
-                return timeStamp + ".jpg";
-            else
-                return timeStamp + "(" + (max + 1) + ")" + ".jpg";
+            return timeStamp + ".jpg";
         }
     }
 }

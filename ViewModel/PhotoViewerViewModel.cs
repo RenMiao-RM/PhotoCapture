@@ -3,6 +3,10 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Commnds;
 using Commands;
+using System;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using Windows.Storage;
 
 namespace ViewModel
 {
@@ -27,6 +31,22 @@ namespace ViewModel
             DeleteCommand = new DeleteCommand(this);
             SwitchCommand = new SwitchCommand(this);
             FileList = new ObservableCollection<PhotoFile>();
+        }
+
+        /**
+         * Initialize the photo viewer page
+         */
+        internal async Task InitViewerAsync()
+        {
+            FileList.Clear();
+
+            IReadOnlyList<StorageFile> files = await KnownFolders.SavedPictures.GetFilesAsync();
+
+            foreach (StorageFile file in files)
+            {
+                PhotoFile newPhotoFile = await PhotoFile.GeneratePhotoFile(file);
+                FileList.Add(newPhotoFile);
+            }
         }
 
         /**
